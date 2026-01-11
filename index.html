@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>YeongjuTRIG - Vision Mode: Autonomous Driving</title>
+    <meta name="description" content="삼각함수로 물체의 위치와 거리를 추정하는 자율주행 교육용 시뮬레이터">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://c dnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Three.js -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.152.0/build/three.min.js"></script>
+    <!-- OrbitControls - Using proven working CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.145.0/examples/js/controls/OrbitControls.js"></script>
+    
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    
+    <!-- Header -->
+    <header class="app-header">
+        <div class="header-content">
+            <h1 class="app-title">YeongjuTRIG</h1>
+            <p class="app-subtitle">삼각함수로 물체의 위치와 거리를 추정하다</p>
+        </div>
+        <div class="mode-badge">
+            <i class="fas fa-car"></i>
+            <span>Vision Mode – Autonomous Driving Example</span>
+        </div>
+    </header>
+
+    <!-- Main Viewport Container -->
+    <div class="viewport-container">
+        
+        <!-- Main 3D View -->
+        <div class="main-viewport">
+            <div class="viewport-label">전체 공간 뷰 (Main View)</div>
+            <div id="main-canvas-container"></div>
+            <div class="viewport-instructions">
+                <i class="fas fa-hand-pointer"></i> 드래그: 회전/물체이동 | 
+                <i class="fas fa-mouse"></i> 휠: 확대/축소 | 
+                <i class="fas fa-keyboard"></i> W/S: 차량이동
+            </div>
+        </div>
+
+        <!-- Camera Views -->
+        <div class="camera-viewports">
+            <div class="camera-viewport camera-b-viewport">
+                <div class="viewport-label">
+                    <span class="camera-icon" style="color: #2196F3;">●</span>
+                    Camera B View (좌측 카메라 시점)
+                </div>
+                <div id="camera-b-canvas-container"></div>
+            </div>
+            
+            <div class="camera-viewport camera-a-viewport">
+                <div class="viewport-label">
+                    <span class="camera-icon" style="color: #4CAF50;">●</span> 
+                    Camera A View (우측 카메라 시점)
+                </div>
+                <div id="camera-a-canvas-container"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- UI Panels Overlay -->
+    <div class="ui-panels">
+        
+        <!-- Control Panel -->
+        <div class="card control-card">
+            <div class="card-header">
+                <h2><i class="fas fa-sliders-h"></i> 카메라 설정</h2>
+            </div>
+            
+            <div class="control-group">
+                <label>
+                    <span class="control-label">카메라 간 거리 (Baseline)</span>
+                    <span class="control-value" id="baselineValue">1.5</span>
+                    <span class="control-unit">m</span>
+                </label>
+                <input type="range" id="baselineSlider" min="0.5" max="3.0" value="1.5" step="0.1">
+                <div class="control-hint">카메라 간격이 넓을수록 정확도 향상</div>
+            </div>
+
+            <button id="resetBtn" class="reset-btn">
+                <i class="fas fa-undo"></i> 초기 설정으로 리셋
+            </button>
+        </div>
+
+        <!-- Object Selection Panel -->
+        <div class="card objects-card">
+            <div class="card-header">
+                <h2><i class="fas fa-list"></i> 감지된 물체</h2>
+            </div>
+            
+            <div class="objects-list" id="objectsList">
+                <!-- Dynamically populated -->
+            </div>
+            
+            <div class="selection-hint">
+                <i class="fas fa-hand-pointer"></i>
+                물체를 클릭하여 선택하세요
+            </div>
+        </div>
+
+        <!-- Calculation Panel -->
+        <div class="card calculation-card">
+            <div class="card-header">
+                <h2><i class="fas fa-calculator"></i> 삼각 측량 계산 과정</h2>
+            </div>
+            
+            <div id="calculationSteps" class="calculation-steps">
+                <div class="no-selection-message">
+                    <i class="fas fa-info-circle"></i>
+                    <p>물체를 선택하면 계산 과정이 표시됩니다</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Educational Content -->
+        <div class="card education-card">
+            <div class="card-header">
+                <h2><i class="fas fa-graduation-cap"></i> 자율주행 카메라 원리</h2>
+            </div>
+            
+            <div class="education-content">
+                <div class="education-section">
+                    <h3><i class="fas fa-video"></i> 왜 각 카메라의 시점이 다른가?</h3>
+                    <p>
+                        두 카메라는 서로 다른 위치에서 같은 물체를 봅니다. 
+                        이는 우리의 두 눈과 같은 원리로, 각 카메라는 물체를 조금씩 다른 각도에서 바라봅니다.
+                    </p>
+                    <p>
+                        <strong>하단의 Camera A View와 Camera B View를 비교해보세요!</strong> 
+                        같은 물체가 화면의 다른 위치에 나타납니다.
+                    </p>
+                </div>
+
+                <div class="education-section">
+                    <h3><i class="fas fa-camera"></i> 단일 카메라의 한계</h3>
+                    <p>
+                        하나의 카메라만으로는 물체가 <strong>어느 방향</strong>에 있는지는 알 수 있지만, 
+                        <strong>얼마나 멀리</strong> 있는지는 알 수 없습니다.
+                    </p>
+                    <p>
+                        예시: 작은 물체가 가까이 있는 것인지, 큰 물체가 멀리 있는 것인지 
+                        하나의 카메라만으로는 구분할 수 없습니다.
+                    </p>
+                </div>
+
+                <div class="education-section">
+                    <h3><i class="fas fa-draw-polygon"></i> 삼각형 형성 원리</h3>
+                    <p>
+                        두 카메라 위치와 물체가 하나의 <strong>삼각형</strong>을 만듭니다:
+                    </p>
+                    <ul>
+                        <li>밑변: 두 카메라 사이의 거리 (baseline)</li>
+                        <li>두 변: 각 카메라에서 물체로 향하는 시선</li>
+                        <li>내각: 각 카메라에서 측정한 각도 θ₁, θ₂</li>
+                    </ul>
+                    <p>
+                        밑변의 길이와 두 내각을 알면, 삼각함수를 이용해 
+                        나머지 변의 길이(물체까지의 거리)를 계산할 수 있습니다!
+                    </p>
+                </div>
+
+                <div class="education-section">
+                    <h3><i class="fas fa-square-root-alt"></i> 탄젠트 함수의 역할</h3>
+                    <p>
+                        <code>tan(θ) = 대변 / 인접변</code> 공식을 사용합니다.
+                    </p>
+                    <p>
+                        <strong>Camera A 기준:</strong><br>
+                        <code>tan(θ₁) = y / x</code><br>
+                        물체의 전방 거리(y)를 옆 거리(x)로 나눈 값
+                    </p>
+                    <p>
+                        <strong>Camera B 기준:</strong><br>
+                        <code>tan(θ₂) = y / (b - x)</code><br>
+                        Camera B와 물체 사이의 옆 거리는 (baseline - x)
+                    </p>
+                    <p>
+                        이 두 식을 연립하여 x와 y를 구하면, 
+                        물체의 정확한 위치를 알 수 있습니다!
+                    </p>
+                </div>
+
+                <div class="education-section warning-section">
+                    <h3><i class="fas fa-exclamation-triangle"></i> 이상적 조건 가정</h3>
+                    <p>
+                        이 시뮬레이터는 다음을 가정합니다:
+                    </p>
+                    <ul>
+                        <li>카메라 렌즈에 왜곡 없음</li>
+                        <li>각도 측정이 완벽히 정확함</li>
+                        <li>대기 굴절, 반사 등 환경 요인 없음</li>
+                        <li>물체를 점으로 단순화</li>
+                    </ul>
+                    <p>
+                        <strong>실제 자율주행에서는</strong> 카메라 캘리브레이션, 
+                        깊이 학습 알고리즘, 다중 센서 융합 등 
+                        추가 기술이 필요합니다.
+                    </p>
+                </div>
+
+                <div class="education-section">
+                    <h3><i class="fas fa-car"></i> 실제 자율주행 응용</h3>
+                    <p>
+                        이 시뮬레이터는 Tesla, Waymo 등 자율주행 차량이 
+                        장애물까지의 거리를 측정하는 핵심 원리를 보여줍니다.
+                    </p>
+                    <p>
+                        실제 시스템은 초당 30-60회 이상 이러한 계산을 수행하여 
+                        주변 환경을 실시간으로 파악합니다.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            <p>YeongjuTRIG - 자율주행 비전 시스템의 삼각 측량 원리</p>
+            <p class="footer-note">고등학생 수학·컴퓨터공학 심화 탐구 프로젝트</p>
+        </footer>
+
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
